@@ -43,17 +43,20 @@ def parse_table(table, district):
   return df
   
 main_page = soupify_page(boe_url)
-# Depends on Democratic candidates appearing first on the page
 for c in contests:
-  print("Fetching", c['office'], "District", c['district'])
-  href = get_href(main_page, {'title': lambda x: x and "By AD" in x and c['office'] in x})
-  contest_url = urljoin(boe_url, href)
+  # Depends on Democratic candidates appearing first on the page
+  href = get_href(main_page, {'title': lambda x: x and x == f"By AD: {c['office']}"})
   
-  contest_page = soupify_page(contest_url)
-  href = get_href(contest_page, {'title': lambda x: x and c['office'] and str(c['district']) in x})
+  if 'district' in c:
+    print("Fetching", c['office'], " - District", c['district'])
+    contest_url = urljoin(boe_url, href)
+    contest_page = soupify_page(contest_url)
+    href = get_href(contest_page, {'title': lambda x: x and c['office'] and str(c['district']) in x})
+  else:
+    print("Fetching", c['office'])
+    
   # URL for "total" page listing AD-level results in all boroughs
   all_ad_results_url = urljoin(boe_url, href.replace("ADI0.html", "AD0.html"))
-  
   all_ad_results_page = soupify_page(all_ad_results_url)
   ad_results = all_ad_results_page.find_all("a", title=lambda x: x and "AD" in x)
 
@@ -67,5 +70,6 @@ for c in contests:
     results_dfs.append(parse_table(table, district))
 
   df = pd.concat(results_dfs, ignore_index=True)
-  fn = pathlib.Path.cwd() / data_dir / f"{c['office']} - District {c['district']}.tsv"
-  df.to_csv(fn, sep="\t", index=False)
+  fn = f"{c['office']}" +  (f" - District {c['district']}" if 'district' in c else "") + ".tsv"
+  file_path = pathlib.Path.cwd() / data_dir / fn
+  df.to_csv(file_path, sep="\t", index=False)
