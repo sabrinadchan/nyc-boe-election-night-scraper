@@ -34,12 +34,12 @@ def get_href(soup, lookup):
     return a['href']
   raise Exception("No such page could be found")
 
-def parse_table(table, district):
+def parse_table(table, ad_number):
   df = pd.read_html(str(table), header=[0,1])[0]
   df.dropna(axis=1, how='all', inplace=True)
   df.columns = ["ad_ed", "reporting"] + ["candidate|" + c.title() + "|" + p.replace("&nbsp", "") for c,p in df.columns[2:]]
   df = df.loc[~df.ad_ed.str.contains("Total")]
-  df.ad_ed = district + "-" + df.ad_ed.str.split().str[1].astype(int).map("{:03d}".format)
+  df.ad_ed = ad_number + "-" + df.ad_ed.str.split().str[1].astype(int).map("{:03d}".format)
   return df
   
 main_page = soupify_page(boe_url)
@@ -51,7 +51,7 @@ for c in contests:
     print("Fetching", c['office'], " - District", c['district'])
     contest_url = urljoin(boe_url, href)
     contest_page = soupify_page(contest_url)
-    href = get_href(contest_page, {'title': lambda x: x and c['office'] and str(c['district']) in x})
+    href = get_href(contest_page, {'title': lambda x: x and c['office'] in x and str(c['district']) in x})
   else:
     print("Fetching", c['office'])
     
@@ -66,8 +66,8 @@ for c in contests:
     results_url = urljoin(boe_url, href)
     ad_results_page = soupify_page(results_url)
     table = ad_results_page.find("table", class_="underline")
-    district = a['title'].split()[1]
-    results_dfs.append(parse_table(table, district))
+    ad_number = a['title'].split()[1]
+    results_dfs.append(parse_table(table, ad_number))
 
   df = pd.concat(results_dfs, ignore_index=True)
   fn = f"{c['office']}" +  (f" - District {c['district']}" if 'district' in c else "") + ".tsv"
